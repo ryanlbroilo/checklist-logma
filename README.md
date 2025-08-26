@@ -102,4 +102,4 @@ src/
 
 ## Este software é fornecido “no estado em que se encontra”, sem garantias de qualquer tipo. Em caso de dúvidas, contatar o time responsável.
 
-## Checklist Logma — Copyright © Logma.
+## Checklist Logma — Copyright © Logma Transportes.
