@@ -1,0 +1,60 @@
+# ============================
+# DEPENDÊNCIAS
+# ============================
+node_modules/
+
+# ============================
+# BUILD / DIST
+# ============================
+dist/
+build/
+
+# ============================
+# LOGS
+# ============================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============================
+# SISTEMA / EDITORES
+# ============================
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# ============================
+# FIREBASE
+# ============================
+.firebase/
+.firebaserc
+
+# ============================
+# VARIÁVEIS DE AMBIENTE
+# ============================
+.env
+.env.local
+.env.*.local
+*.env
+
+# ============================
+# CHAVES / SEGREDOS
+# ============================
+firebase-service-account.json
+serviceAccountKey.json
+
+# ============================
+# TEST / COVERAGE
+# ============================
+coverage/
+*.lcov
+
+# ============================
+# MISC
+# ============================
+*.log

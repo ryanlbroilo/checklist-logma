@@ -1,0 +1,319 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+/* ====== Base / Tema ====== */
+:root {
+  --bg-dark: #0b0d12;
+  --text-light: #ffffff;
+
+  --focus-blue: rgba(13, 110, 253, 0.28);
+}
+
+body.dark {
+  background-color: var(--bg-dark);
+  color: var(--text-light);
+  font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+/* ====== Título Home ====== */
+.home-title {
+  font-size: clamp(24px, 4.2vw, 36px); /* maior */
+  text-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+  letter-spacing: .3px;
+}
+
+/* ====== Wrapper + Grid (mais largo e 2 colunas no desktop) ====== */
+.home-actions {
+  max-width: 1200px;         /* ↑ ocupa mais da tela */
+  margin: 0 auto;
+  width: 100%;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr;  /* 1 coluna no mobile */
+  gap: 18px;                   /* mais respiro */
+  align-items: stretch;
+}
+
+@media (min-width: 992px) {    /* desktop */
+  .actions-grid {
+    grid-template-columns: 1fr 1fr; /* 2 colunas */
+    gap: 22px;
+  }
+}
+
+/* ====== Botões estilo "tile" (maiores/premium) ====== */
+.btn-tile {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+
+  /* ↑ ~20–30% maior visualmente */
+  padding: 22px 28px;
+  min-height: 68px;
+
+  border-radius: 18px;
+  font-weight: 700;
+  font-size: 17.5px;
+  letter-spacing: .25px;
+
+  border: 1px solid rgba(255,255,255,.08);
+  color: #fff;
+
+  box-shadow:
+    0 12px 28px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.08);
+
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    filter .18s ease,
+    background .25s ease,
+    color .18s ease,
+    border-color .18s ease;
+  will-change: transform, box-shadow;
+
+  position: relative;
+  overflow: hidden; /* brilho */
+}
+
+.btn-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 25%, rgba(255,255,255,.10) 45%, transparent 65%);
+  transform: translateX(-130%);
+  transition: transform .55s ease;
+  pointer-events: none;
+}
+.btn-tile:hover::after { transform: translateX(130%); }
+
+.btn-tile:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 18px 36px rgba(0,0,0,.38),
+    inset 0 1px 0 rgba(255,255,255,.10);
+  filter: saturate(1.07);
+}
+.btn-tile:active { transform: translateY(0); }
+.btn-tile:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 5px var(--focus-blue),
+    0 14px 30px rgba(0,0,0,.30);
+}
+
+/* ====== Paleta com GRADIENTES VIVOS ====== */
+
+/* Checklist (cinza vivo) */
+.btn-secondary.btn-tile {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  color: #fff;
+  border-color: rgba(255,255,255,.10);
+}
+.btn-secondary.btn-tile:hover {
+  background: linear-gradient(135deg, #586173 0%, #3f4757 100%);
+}
+
+/* Abastecimento — VERDE vivo */
+.btn-abastecimento {
+  background: linear-gradient(135deg, #16a34a 0%, #0f7c3a 100%);
+  color: #fff;
+  border-color: rgba(0,0,0,.12);
+}
+.btn-abastecimento:hover {
+  background: linear-gradient(135deg, #1cc659 0%, #139046 100%);
+}
+
+/* Histórico — BRANCO premium (texto escuro) */
+.btn-historico {
+  background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
+  color: #111;
+  border: 1px solid #e5e7eb;
+  box-shadow:
+    0 10px 22px rgba(0,0,0,.16),
+    inset 0 1px 0 rgba(255,255,255,.8);
+}
+.btn-historico:hover {
+  background: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%);
+  color: #000;
+}
+
+/* Manutenções — AMARELO vibrante */
+.btn-manutencao {
+  background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+  color: #111;
+  border-color: rgba(0,0,0,.06);
+}
+.btn-manutencao:hover {
+  background: linear-gradient(135deg, #fde047 0%, #facc15 100%);
+}
+
+/* Painel Admin — AZUL vivo */
+.btn-admin {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  border-color: rgba(0,0,0,.08);
+}
+.btn-admin:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+/* Sair — VERMELHO vivo */
+.btn-sair {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: #fff;
+  border-color: rgba(0,0,0,.10);
+}
+.btn-sair:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+/* ====== Disabled ====== */
+.btn-secondary:disabled {
+  background: #d3d3d3 !important;
+  border-color: #d3d3d3 !important;
+  color: #6c757d !important;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ====== Botão Voltar (slim) ====== */
+.btn-voltar {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  color: #212529;
+  border: 1.5px solid #333;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 14.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.10);
+  cursor: pointer;
+}
+.btn-voltar:hover {
+  background: linear-gradient(135deg, #f1f3f5 0%, #e9ecef 100%);
+  border-color: #0d6efd;
+  color: #0d6efd;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+.btn-voltar:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--focus-blue);
+}
+.btn-voltar:active { transform: translateY(0); }
+/* ===== Submenu dos Checklists ===== */
+.position-relative { position: relative; } /* utilitário caso não tenha no escopo */
+
+.submenu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;             /* ocupa a mesma largura do botão */
+  margin: 0 auto;
+  z-index: 50;
+
+  background: linear-gradient(135deg, #1b1f2a 0%, #111520 100%);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  box-shadow:
+    0 18px 36px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.08);
+
+  padding: 10px;
+}
+
+.submenu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+
+  background: transparent;
+  color: #e5e7eb;
+  border: none;
+
+  padding: 12px 14px;
+  border-radius: 12px;
+
+  font-weight: 600;
+  letter-spacing: .2px;
+  transition: background .18s ease, color .18s ease, transform .12s ease;
+  text-align: left;
+}
+
+.submenu-item:hover {
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  transform: translateX(2px);
+}
+
+.fade-in-up {
+  animation: fadeInUp .18s ease;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ====== Título Login ====== */
+.login-title {
+  font-size: clamp(26px, 5vw, 38px);
+  font-weight: 700;
+  text-align: center;
+  color: #fff;
+  margin-bottom: 28px;
+  text-shadow: 2px 2px 5px rgba(0,0,0,0.45);
+  letter-spacing: .3px;
+}
+
+/* ====== Botão Login (premium azul) ====== */
+.btn-login {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #000000 0%, #1a1a1a 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.btn-login:hover {
+  background: linear-gradient(180deg, #1a1a1a 0%, #333333 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+}
+
+.btn-login:active {
+  transform: translateY(0);
+  background: linear-gradient(180deg, #0d0d0d 0%, #262626 100%);
+}
+
+.btn-login:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.4);
+}
+.login-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #111;
+  text-align: center;
+  margin-bottom: 24px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.25);
+}
