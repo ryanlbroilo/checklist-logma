@@ -1,12 +1,88 @@
-# React + Vite
+# 🚚 Checklist Logma
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação interna para **checklist e abastecimento** de frota (focada em frota pesada), construída em **React (Vite)** e **Firebase** (Auth, Firestore e Storage).  
+Inclui painel de KPIs, lançamento com imagem (nota/comprovante), histórico, cadastro de veículos e controle de acesso por papéis.
 
-Currently, two official plugins are available:
+> **Status:** Uso interno (comercial/privado).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## ✨ Principais recursos
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- 🔐 **Autenticação** (Firebase Auth) + controle por **papéis** (`useUserRoles`, `RoleGate`)
+- 🚛 **Veículos** (seção e modal de gestão)
+- ⛽ **Abastecimentos**
+  - Lançamento com foto (armazenada no Storage)
+  - Edição/Exclusão em modal
+  - Exportação para Excel (SheetJS)
+- 📊 **Dashboard de KPIs** (mês atual x anterior, metas de preço por frota)
+- 👮 **Painel de Administrador**
+  - Gráficos, pendências, administração de usuarios, checklists e veículos
+- ⛽ Manutenções
+- 🧾 **Histórico** (busca e filtros)
+- 📝 **Checklist** (apenas frota pesada)
+- 👮 **Rotas protegidas** (`ProtectedRoute`) e **gates** por role/permissão
+- 🎯 **Targets** (metas de R$/L por frota) persistidos no Firestore
+
+---
+
+## 🗂️ Estrutura do projeto
+
+src/
+├─ assets/
+│ └─ logo.png
+├─ auth/
+│ ├─ AuthContext.jsx
+│ └─ ProtectedRoute.jsx
+├─ components/
+│ ├─ abastecimento/
+│ │ ├─ DashboardAbastecimento.jsx
+│ │ ├─ EditarAbastecimentoModal.jsx
+│ │ ├─ LancarAbastecimento.jsx
+│ │ └─ ModalLancarAbastecimento.jsx
+│ ├─ Login.jsx
+│ ├─ UsuariosSection.jsx
+│ ├─ VeiculosSection.jsx
+│ └─ VeiculosSectionModalContainer.jsx
+├─ data/
+│ └─ checklistItems.js
+├─ hooks/
+│ └─ useUserRoles.js
+├─ modules/
+│ └─ abastecimento/
+│ ├─ MyAbastecimentos.jsx
+│ └─ PublicAbastecimentoForm.jsx
+├─ pages/
+│ ├─ AdminPanel.jsx
+│ ├─ Checklist.jsx
+│ ├─ Historico.jsx
+│ ├─ Home.jsx
+│ └─ manutencao.jsx
+├─ services/
+│ ├─ abastecimentos.js
+│ ├─ firebase.js
+│ └─ veiculos.js
+├─ App.jsx
+├─ index.css
+├─ main.jsx
+└─ Themecontext.jsx
+
+---
+
+## 🔧 Tecnologias
+
+- **React + Vite**
+- **Firebase** (Auth, Firestore, Storage)
+- **Bootstrap 5** + **React Icons**
+- **SheetJS (xlsx)** para exportação
+- **Chart.js / Recharts** em KPIs
+
+---
+
+## 🚀 Ambiente de desenvolvimento
+
+### Pré-requisitos
+- Node.js LTS (18+)
+- npm (ou pnpm/yarn)
+- Projeto Firebase criado (Auth + Firestore + Storage)
+- Variáveis de ambiente configuradas
