@@ -87,18 +87,19 @@ src/
 - Projeto Firebase criado (Auth + Firestore + Storage)
 - Variáveis de ambiente configuradas
 
-Checklist Logma — Copyright © Logma.
 
-Este software é de **uso interno e confidencial**. Você não tem permissão para copiar, distribuir, sublicenciar, revender, publicar ou disponibilizar este software a terceiros, no todo ou em parte, sem autorização **expressa e por escrito** da Logma.
 
-Direitos concedidos:
+## Este software é de **uso interno e confidencial**. Você não tem permissão para copiar, distribuir, sublicenciar, revender, publicar ou disponibilizar este software a terceiros, no todo ou em parte, sem autorização **expressa e por escrito** da Logma.
+
+## Direitos concedidos:
 - Execução e uso interno pela equipe autorizada da Logma;
 - Modificações internas para manutenção/evolução do produto.
 
-Restrições:
+## Restrições:
 - É proibida a redistribuição, uso fora do ambiente corporativo ou disponibilização pública;
 - É proibida a engenharia reversa para fins de cópia/redistribuição;
 - Quaisquer dados tratados pelo sistema devem ser protegidos conforme as políticas de segurança da Logma.
 
-Este software é fornecido “no estado em que se encontra”, sem garantias de qualquer tipo. Em caso de dúvidas, contatar o time responsável.
+## Este software é fornecido “no estado em que se encontra”, sem garantias de qualquer tipo. Em caso de dúvidas, contatar o time responsável.
 
+## Checklist Logma — Copyright © Logma.
