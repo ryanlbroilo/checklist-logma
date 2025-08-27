@@ -12,48 +12,68 @@ import {
   getDocs,
   doc,
   updateDoc,
+  Timestamp,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { db, storage, auth } from "../../services/firebase";
+import { obterUltimoKmPorVeiculo } from "../../services/abastecimentos";
 
 export default function LancarAbastecimento({
-  publicMode = false,                  // se true, restringe por allowedFrotas
-  allowedFrotas = ["leve", "pesada"],  // em modo público, quais frotas são aceitas
-  lockFrota = false,                   // se true, trava o seletor de frota
-  defaultFrota = "",                   // valor inicial quando lockFrota = true
-  hideSearch = false,                  // se true, esconde a busca por veículo
+  publicMode = false,
+  allowedFrotas: allowedFrotasProp = ["leve", "pesada"],
+  lockFrota: lockFrotaProp = false,
+  defaultFrota: defaultFrotaProp = "",
+  hideSearch = false,
 }) {
   const navigate = useNavigate();
 
-  // filtros e seleção
-  const [tipoFrota, setTipoFrota] = useState(defaultFrota || "");
+  // ===== Role / Frota =====
+  const [role, setRole] = useState("admin");
+  const [tipoFrota, setTipoFrota] = useState(defaultFrotaProp || "");
+  const [lockFrota, setLockFrota] = useState(lockFrotaProp);
+  const [allowedFrotas, setAllowedFrotas] = useState(allowedFrotasProp);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdTokenResult();
+        const r = token.claims?.role || token.claims?.perfil || "admin";
+        setRole(r);
+
+        // Aplica regra por role
+        if (r === "vendedor") {
+          setAllowedFrotas(["leve"]);
+          setTipoFrota("leve");
+          setLockFrota(true);
+        } else if (r === "motorista") {
+          setAllowedFrotas(["pesada"]);
+          setTipoFrota("pesada");
+          setLockFrota(true);
+        } else {
+          // admin
+          setAllowedFrotas(["leve", "pesada"]);
+          setLockFrota(lockFrotaProp);
+          if (!defaultFrotaProp) setTipoFrota("");
+        }
+      } catch {
+        // fallback admin
+        setRole("admin");
+        setAllowedFrotas(["leve", "pesada"]);
+        setLockFrota(lockFrotaProp);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ===== Veículos / Busca =====
   const [veiculos, setVeiculos] = useState([]);
   const [busca, setBusca] = useState("");
-
   const [veiculoId, setVeiculoId] = useState("");
   const [veiculoSel, setVeiculoSel] = useState(null);
 
-  // dados do abastecimento
-  const [tipoCombustivel, setTipoCombustivel] = useState("");
-  const [litros, setLitros] = useState("");
-  const [precoPorLitro, setPrecoPorLitro] = useState("");
-  const [posto, setPosto] = useState("");
-  const [dataHora, setDataHora] = useState(""); // datetime-local
-
-  // upload de imagem
-  const [image, setImage] = useState(null);
-
-  // UI
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  // quando defaultFrota mudar (via props), atualiza (ex.: troca de usuário)
-  useEffect(() => {
-    if (defaultFrota) setTipoFrota(defaultFrota);
-  }, [defaultFrota]);
-
-  // Carrega veículos conforme tipoFrota escolhido
   useEffect(() => {
     (async () => {
       if (!tipoFrota) {
@@ -70,8 +90,8 @@ export default function LancarAbastecimento({
         const snap = await getDocs(qv);
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setVeiculos(list);
-      } catch (e) {
-        // fallback sem orderBy (caso precise de índice)
+      } catch {
+        // fallback sem orderBy
         const qv2 = query(
           collection(db, "veiculos"),
           where("status", "==", "ativo"),
@@ -98,7 +118,43 @@ export default function LancarAbastecimento({
     );
   }, [veiculos, busca, hideSearch]);
 
-  // Upload de imagem: valida tamanho
+  // ===== Abastecimento: campos =====
+  const [tipoCombustivel, setTipoCombustivel] = useState("");
+  const [litros, setLitros] = useState("");
+  const [precoPorLitro, setPrecoPorLitro] = useState("");
+  const [posto, setPosto] = useState("");
+  const [data, setData] = useState(""); // input type="date"
+
+  // KM/L automático
+  const [kmAtual, setKmAtual] = useState("");
+  const [kmPorLitro, setKmPorLitro] = useState("");
+  const [ultimoKm, setUltimoKm] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      if (!veiculoId) {
+        setUltimoKm(null);
+        return;
+      }
+      const km = await obterUltimoKmPorVeiculo(veiculoId);
+      setUltimoKm(km);
+    })();
+  }, [veiculoId]);
+
+  useEffect(() => {
+    const l = Number(litros);
+    const kmA = Number(kmAtual);
+    if (l > 0 && ultimoKm != null && isFinite(kmA) && kmA > ultimoKm) {
+      const kml = (kmA - ultimoKm) / l;
+      setKmPorLitro(kml.toFixed(3));
+    } else {
+      setKmPorLitro("");
+    }
+  }, [litros, kmAtual, ultimoKm]);
+
+  // ===== Upload imagem =====
+  const [image, setImage] = useState(null);
+
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -106,54 +162,43 @@ export default function LancarAbastecimento({
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setMsg("O arquivo deve ser menor que 10MB.");
+      alert("O arquivo deve ser menor que 10MB.");
       setImage(null);
       return;
     }
     setImage(file);
   };
 
-  // Sobe a imagem em abastecimentos/{uid}/{docId}/{nome}, compatível com suas rules
-  async function uploadImageForDoc(file, uid, docId) {
+  async function uploadImage(uid, docId, file) {
     const ext = file.name.split(".").pop()?.toLowerCase();
-    // suas rules aceitam image/* ou application/pdf
     const fallback = ext === "pdf" ? "application/pdf" : "image/jpeg";
     const metadata = { contentType: file.type || fallback };
-
     const nomeArq = `${Date.now()}_${file.name}`;
     const caminho = `abastecimentos/${uid}/${docId}/${nomeArq}`;
     const imageRef = ref(storage, caminho);
-
     await uploadBytes(imageRef, file, metadata);
-    const url = await getDownloadURL(imageRef);
-    return url;
+    return await getDownloadURL(imageRef);
   }
+
+  // ===== Submit =====
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
     setMsg("");
 
-    // precisa estar autenticado
     const uid = auth.currentUser?.uid;
-    if (!uid) {
-      setMsg("Você precisa estar autenticado.");
-      return;
+    if (!uid) return setMsg("Você precisa estar autenticado.");
+    if (!veiculoSel) return setMsg("Selecione um veículo.");
+    if (!tipoCombustivel || !litros || !precoPorLitro || !data) {
+      return setMsg("Preencha todos os campos obrigatórios.");
     }
 
-    if (!veiculoSel) {
-      setMsg("Selecione um veículo.");
-      return;
-    }
-    if (!tipoCombustivel || !litros || !precoPorLitro || !dataHora) {
-      setMsg("Preencha todos os campos obrigatórios.");
-      return;
-    }
-
-    // 🔒 Em modo público, garanta que a frota do veículo é permitida
+    // Restrições em modo público
     const tipoFrotaDoVeiculo = String(veiculoSel.tipoFrota || "").toLowerCase();
     if (publicMode && !allowedFrotas.includes(tipoFrotaDoVeiculo)) {
-      setMsg("Você não tem permissão para lançar nessa frota.");
-      return;
+      return setMsg("Você não tem permissão para lançar nessa frota.");
     }
 
     try {
@@ -163,10 +208,14 @@ export default function LancarAbastecimento({
       const pplNum = Number(precoPorLitro);
       const valorTotal = Number((litrosNum * pplNum).toFixed(2));
 
-      // 1) cria o documento primeiro (sem imagem)
+      // usar meio-dia LOCAL para evitar problemas de fuso caindo no dia anterior
+      const [y, m, d] = String(data).split("-").map(Number);
+      const jsDate = new Date(y, m - 1, d, 12, 0, 0, 0);
+
+      // 1) cria o documento sem a imagem
       const refDoc = await addDoc(collection(db, "abastecimentos"), {
         userId: uid,
-        tipoFrota: tipoFrotaDoVeiculo, // SEMPRE do veículo selecionado
+        tipoFrota: tipoFrotaDoVeiculo,
         veiculoId: veiculoSel.id,
         placa: veiculoSel.placa || "",
         frotaNumero: veiculoSel.frotaNumero || "",
@@ -175,13 +224,16 @@ export default function LancarAbastecimento({
         precoPorLitro: pplNum,
         valorTotal,
         posto: posto || "",
-        dataHora: new Date(dataHora),
+        dataAbastecimento: Timestamp.fromDate(jsDate),
+        kmAtual: kmAtual ? Number(kmAtual) : null,
+        kmPorLitro: kmPorLitro ? Number(kmPorLitro) : null,
         criadoEm: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
-      // 2) se houver imagem, faz upload no caminho permitido e atualiza o doc
+      // 2) upload opcional da imagem
       if (image) {
-        const url = await uploadImageForDoc(image, uid, refDoc.id);
+        const url = await uploadImage(uid, refDoc.id, image);
         await updateDoc(doc(db, "abastecimentos", refDoc.id), {
           imagem: url,
           updatedAt: serverTimestamp(),
@@ -196,7 +248,9 @@ export default function LancarAbastecimento({
       setLitros("");
       setPrecoPorLitro("");
       setPosto("");
-      setDataHora("");
+      setData("");
+      setKmAtual("");
+      setKmPorLitro("");
       setBusca("");
       setImage(null);
     } catch (err) {
@@ -210,7 +264,6 @@ export default function LancarAbastecimento({
   return (
     <div className="card shadow-sm">
       <div className="card-body">
-        {/* Botão Voltar */}
         <button type="button" className="btn-voltar" onClick={() => navigate("/")}>
           ← Voltar
         </button>
@@ -229,22 +282,21 @@ export default function LancarAbastecimento({
                 value={tipoFrota}
                 onChange={(e) => setTipoFrota(e.target.value)}
               >
-                <option value="">Selecione.</option>
+                <option value="">Selecione...</option>
                 {allowedFrotas.includes("leve") && <option value="leve">Leve</option>}
                 {allowedFrotas.includes("pesada") && <option value="pesada">Pesada</option>}
               </select>
             </div>
           ) : (
-            // travado: mostra só um texto
             <div className="mb-3">
               <label className="form-label d-block">Frota</label>
               <span className="badge bg-secondary text-uppercase">
-                {defaultFrota || tipoFrota}
+                {tipoFrota || defaultFrotaProp}
               </span>
             </div>
           )}
 
-          {/* (Opcional) Busca veículo — oculto se hideSearch */}
+          {/* Busca veículo */}
           {!hideSearch && (
             <div className="mb-2">
               <label className="form-label">Pesquisar veículo (placa ou Nº frota)</label>
@@ -267,7 +319,7 @@ export default function LancarAbastecimento({
               onChange={(e) => setVeiculoId(e.target.value)}
               disabled={!tipoFrota}
             >
-              <option value="">Selecione.</option>
+              <option value="">Selecione...</option>
               {veiculosFiltrados.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.placa} — Frota {v.frotaNumero} — {v.nome || ""}
@@ -276,7 +328,7 @@ export default function LancarAbastecimento({
             </select>
           </div>
 
-          {/* Dados do abastecimento */}
+          {/* Campos abastecimento */}
           <div className="row g-3">
             <div className="col-md-4">
               <label className="form-label">Combustível</label>
@@ -285,7 +337,7 @@ export default function LancarAbastecimento({
                 value={tipoCombustivel}
                 onChange={(e) => setTipoCombustivel(e.target.value)}
               >
-                <option value="">Selecione.</option>
+                <option value="">Selecione...</option>
                 <option value="diesel">Diesel S10/S500</option>
                 <option value="gasolina">Gasolina</option>
                 <option value="arla">ARLA 32</option>
@@ -316,22 +368,41 @@ export default function LancarAbastecimento({
               />
             </div>
 
+            <div className="col-md-4">
+              <label className="form-label">KM Atual</label>
+              <input
+                type="number"
+                className="form-control"
+                value={kmAtual}
+                onChange={(e) => setKmAtual(e.target.value)}
+                placeholder="km"
+              />
+              {ultimoKm != null && (
+                <div className="form-text">Último KM conhecido: {ultimoKm}</div>
+              )}
+            </div>
+
+            <div className="col-md-4">
+              <label className="form-label">KM/L (auto)</label>
+              <input type="text" className="form-control" value={kmPorLitro} readOnly />
+            </div>
+
+            <div className="col-md-4">
+              <label className="form-label">Data do abastecimento</label>
+              <input
+                type="date"
+                className="form-control"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+              />
+            </div>
+
             <div className="col-md-6">
               <label className="form-label">Posto</label>
               <input
                 className="form-control"
                 value={posto}
                 onChange={(e) => setPosto(e.target.value)}
-              />
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">Data e hora</label>
-              <input
-                type="datetime-local"
-                className="form-control"
-                value={dataHora}
-                onChange={(e) => setDataHora(e.target.value)}
               />
             </div>
           </div>

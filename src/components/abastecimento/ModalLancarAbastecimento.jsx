@@ -1,11 +1,10 @@
+// src/components/abastecimento/ModalLancarAbastecimento.jsx
 import { useEffect, useMemo, useState } from "react";
-import { Timestamp } from "firebase/firestore";
-import {
-  addAbastecimento,
-  obterUltimoKmPorVeiculo,
-} from "../../services/abastecimentos";
+import { Timestamp, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { addAbastecimento, obterUltimoKmPorVeiculo } from "../../services/abastecimentos";
+import { db, storage, auth } from "../../services/firebase";
 
-/* ============== Modal: Lançar Abastecimento (KM/L automático) ============== */
 export default function ModalLancarAbastecimento({
   open,
   onClose,
@@ -24,9 +23,32 @@ export default function ModalLancarAbastecimento({
     tipoFrota: "",
     tipoCombustivel: "",
   });
+
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
   const [ultimoKm, setUltimoKm] = useState(null);
+
+  // Upload imagem
+  const [image, setImage] = useState(null);
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return setImage(null);
+    if (file.size > 10 * 1024 * 1024) {
+      alert("O arquivo deve ser menor que 10MB.");
+      return setImage(null);
+    }
+    setImage(file);
+  };
+  async function uploadImage(uid, docId, file) {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const fallback = ext === "pdf" ? "application/pdf" : "image/jpeg";
+    const metadata = { contentType: file.type || fallback };
+    const nomeArq = `${Date.now()}_${file.name}`;
+    const caminho = `abastecimentos/${uid}/${docId}/${nomeArq}`;
+    const imageRef = ref(storage, caminho);
+    await uploadBytes(imageRef, file, metadata);
+    return await getDownloadURL(imageRef);
+  }
 
   // reset ao abrir
   useEffect(() => {
@@ -45,17 +67,16 @@ export default function ModalLancarAbastecimento({
     setUltimoKm(null);
     setErro(null);
     setSalvando(false);
+    setImage(null);
   }, [open, frotaSelecionada]);
 
   const veiculosFiltrados = useMemo(() => {
     return frotaSelecionada === "todas"
       ? veiculos
-      : veiculos.filter(
-          (v) => (v.tipoFrota || "").toLowerCase() === frotaSelecionada
-        );
+      : veiculos.filter((v) => (v.tipoFrota || "").toLowerCase() === frotaSelecionada);
   }, [veiculos, frotaSelecionada]);
 
-  // buscar último KM do veículo (sem data de corte)
+  // último KM
   useEffect(() => {
     (async () => {
       if (!form.veiculoId) {
@@ -67,7 +88,7 @@ export default function ModalLancarAbastecimento({
     })();
   }, [form.veiculoId]);
 
-  // recalcular km/L automático
+  // km/L automático
   useEffect(() => {
     const litros = Number(form.litros);
     const kmAtual = Number(form.kmAtual);
@@ -94,26 +115,29 @@ export default function ModalLancarAbastecimento({
     setErro(null);
     setSalvando(true);
     try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error("Você precisa estar autenticado.");
+
       if (!form.veiculoId) throw new Error("Selecione o veículo.");
       if (!form.data) throw new Error("Informe a data.");
-      if (!form.litros || Number(form.litros) <= 0)
-        throw new Error("Informe os litros (> 0).");
+      if (!form.litros || Number(form.litros) <= 0) throw new Error("Informe os litros (> 0).");
       if (!form.precoPorLitro || Number(form.precoPorLitro) <= 0)
         throw new Error("Informe o preço por litro (> 0).");
 
       const tf = String(form.tipoFrota).toLowerCase();
       const tc = String(form.tipoCombustivel).toLowerCase();
-      if (!["leve", "pesada"].includes(tf))
-        throw new Error("Tipo de frota inválido: leve/pesada.");
+      if (!["leve", "pesada"].includes(tf)) throw new Error("Tipo de frota inválido: leve/pesada.");
       if (!tc) throw new Error("Informe o tipo de combustível.");
 
+      // usar meio-dia LOCAL para evitar problemas de fuso
       const [y, m, d] = form.data.split("-").map(Number);
-      // ✅ usar meio-dia LOCAL para evitar cair no dia anterior por fuso
       const jsDate = new Date(y, m - 1, d, 12, 0, 0, 0);
 
       const vSel = veiculos.find((vv) => vv.id === form.veiculoId);
 
-      await addAbastecimento({
+      // 1) cria o doc via serviço (aceita campos extras como 'imagem')
+      const docId = await addAbastecimento({
+        userId: uid,
         veiculoId: form.veiculoId,
         placa: (vSel?.placa || "").toUpperCase(),
         frotaNumero: vSel?.frotaNumero || "",
@@ -128,6 +152,15 @@ export default function ModalLancarAbastecimento({
         observacao: form.posto || "",
       });
 
+      // 2) upload opcional da imagem e atualização do doc
+      if (image && docId) {
+        const url = await uploadImage(uid, docId, image);
+        await updateDoc(doc(db, "abastecimentos", docId), {
+          imagem: url,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
       onSaved?.();
       onClose?.();
     } catch (e2) {
@@ -138,6 +171,7 @@ export default function ModalLancarAbastecimento({
   }
 
   if (!open) return null;
+
   return (
     <div className="modal d-block" tabIndex="-1" style={{ background: "rgba(0,0,0,.5)" }}>
       <div className="modal-dialog modal-lg modal-dialog-centered">
@@ -146,6 +180,7 @@ export default function ModalLancarAbastecimento({
             <h5 className="modal-title fw-bold">Lançar abastecimento</h5>
             <button type="button" className="btn-close" onClick={onClose} />
           </div>
+
           <form onSubmit={handleSalvar}>
             <div className="modal-body">
               {erro && <div className="alert alert-danger py-2">{erro}</div>}
@@ -219,13 +254,7 @@ export default function ModalLancarAbastecimento({
 
                 <div className="col-md-3">
                   <label className="form-label">KM/L (auto)</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={form.kmPorLitro}
-                    readOnly
-                    placeholder="auto"
-                  />
+                  <input type="text" className="form-control" value={form.kmPorLitro} readOnly />
                 </div>
 
                 <div className="col-md-6">
@@ -264,6 +293,17 @@ export default function ModalLancarAbastecimento({
                     <option value="diesel">Diesel S10/S500</option>
                     <option value="arla">ARLA 32</option>
                   </select>
+                </div>
+
+                {/* Upload de imagem */}
+                <div className="col-12">
+                  <label className="form-label">Upload de Imagem (até 10MB)</label>
+                  <input
+                    type="file"
+                    className="form-control"
+                    accept="image/*,application/pdf"
+                    onChange={handleImageChange}
+                  />
                 </div>
               </div>
             </div>
