@@ -553,101 +553,116 @@ export default function Manutencao({ user }) {
   };
 
   const handleAdicionarManutencao = async (e) => {
-      e.preventDefault();
-      setEnviando(true);
-  
-      try {
-        const dataPrevistaDate = dataPrevista ? new Date(dataPrevista + "T23:59:59") : null;
-        const status = dataPrevistaDate && dataPrevistaDate > new Date() ? "pendente" : "aberta";
-  
-        const base = {
-          tipo,
-          equipamentoTipo,
-          veiculoNome,
-          descricao,
-          status,
-          dataHora: new Date(),
-          dataPrevista: dataPrevistaDate,
-          criadoPor: user?.nome || "",
-          problemaVinculado: null,
-          problemaVinculadoInfo: null,
-        };
-  
-        let infoSelecionada = null;
-        if (problemaVinculado) {
-          infoSelecionada = problemasAbertos.find(
-            p => `${p.checklistId}:${p.nomeItem}` === problemaVinculado
-          );
-          if (infoSelecionada) {
-            base.problemaVinculado = `${infoSelecionada.veiculo} - ${infoSelecionada.nomeItem}: ${infoSelecionada.desc}`;
-            base.problemaVinculadoInfo = {
-              checklistId: infoSelecionada.checklistId,
-              nomeItem: infoSelecionada.nomeItem,
-              desc: infoSelecionada.desc,
-              ...(infoSelecionada.tipoOleo ? { tipoOleo: infoSelecionada.tipoOleo } : {}),
-              ...(infoSelecionada.veiculo ? { veiculo: infoSelecionada.veiculo } : {}),
-              ...(infoSelecionada.empId ? { empId: infoSelecionada.empId } : {}),
-              ...(infoSelecionada.manutKey ? { manutKey: infoSelecionada.manutKey } : {}),
-              ...(infoSelecionada.tipoEmp ? { tipoEmp: infoSelecionada.tipoEmp } : {}),
-            };
-          }
-        }
-  
-        let veiculoIdUsado = null;
-        if (equipamentoTipo === "veiculo") {
-          const v = await getVeiculoById(selectedVeiculoId);
-          if (!v) throw new Error("Veículo não encontrado.");
-  
-          const label = labelVeiculo(v);
-          base.veiculoId = v.id;
-          base.veiculoNome = label;
-          base.frotaNumeroSnapshot = v.frotaNumero || "";
-          base.placaSnapshot = v.placa || "";
-  
-          veiculoIdUsado = v.id;
-        }
-  
-        await addDoc(collection(db, "manutencoes"), base);
-  
-        if (veiculoIdUsado) {
-          try {
-            await marcarEmManutencao(veiculoIdUsado);
-          } catch (e) {
-            console.error("Falha ao marcar veículo em manutenção:", e);
-          }
-        }
-  
-        if (infoSelecionada?.checklistId === "emp-prev" && infoSelecionada.empId && infoSelecionada.manutKey) {
-          await resetarAgendamentoEmp(infoSelecionada.empId, infoSelecionada.manutKey);
-        }
-        if (infoSelecionada?.checklistId === "manut-prev" && infoSelecionada.tipoOleo && infoSelecionada.veiculo) {
-          await resetarParametroOleo(infoSelecionada.veiculo, infoSelecionada.tipoOleo);
-        }
-  
+    e.preventDefault();
+    setEnviando(true);
+
+    try {
+      const dataPrevistaDate = dataPrevista ? new Date(dataPrevista + "T23:59:59") : null;
+      const status = dataPrevistaDate && dataPrevistaDate > new Date() ? "pendente" : "aberta";
+
+      const base = {
+        tipo,
+        equipamentoTipo,
+        veiculoNome, // rótulo mostrado na lista (para veículo será "FROTA — PLACA")
+        descricao,
+        status,
+        dataHora: new Date(),
+        dataPrevista: dataPrevistaDate,
+        criadoPor: user?.nome || "",
+        problemaVinculado: null,
+        problemaVinculadoInfo: null,
+      };
+
+      // Vincular a problema (checklist aberto / aviso de óleo / aviso empilhadeira tempo)
+      let infoSelecionada = null;
+      if (problemaVinculado) {
+        infoSelecionada = problemasAbertos.find(
+          p => `${p.checklistId}:${p.nomeItem}` === problemaVinculado
+        );
         if (infoSelecionada) {
-          setProblemasAbertos(prev =>
-            prev.filter(
-              p => !(p.checklistId === infoSelecionada.checklistId && p.nomeItem === infoSelecionada.nomeItem)
-            )
-          );
+          base.problemaVinculado = `${infoSelecionada.veiculo} - ${infoSelecionada.nomeItem}: ${infoSelecionada.desc}`;
+          base.problemaVinculadoInfo = {
+            checklistId: infoSelecionada.checklistId,
+            nomeItem: infoSelecionada.nomeItem,
+            desc: infoSelecionada.desc,
+            ...(infoSelecionada.tipoOleo ? { tipoOleo: infoSelecionada.tipoOleo } : {}),
+            ...(infoSelecionada.veiculo ? { veiculo: infoSelecionada.veiculo } : {}),
+            ...(infoSelecionada.empId ? { empId: infoSelecionada.empId } : {}),
+            ...(infoSelecionada.manutKey ? { manutKey: infoSelecionada.manutKey } : {}),
+            ...(infoSelecionada.tipoEmp ? { tipoEmp: infoSelecionada.tipoEmp } : {}),
+          };
         }
-  
-        setShowModal(false);
-        setTipo("");
-        setEquipamentoTipo("");
-        setListaEquipamentos([]);
-        setVeiculoNome("");
-        setSelectedVeiculoId("");
-        setDescricao("");
-        setDataPrevista("");
-        setProblemaVinculado("");
-  
-        await recarregarDados();
-      } catch (err) {
-        alert("Erro ao cadastrar manutenção: " + err.message);
       }
-      setEnviando(false);
-    };
+
+      // 🔧 Ajustes só quando é VEÍCULO
+      let veiculoIdUsado = null;
+      if (equipamentoTipo === "veiculo") {
+        const v = await getVeiculoById(selectedVeiculoId);
+        if (!v) throw new Error("Veículo não encontrado.");
+
+        const label = labelVeiculo(v);
+        base.veiculoId = v.id;
+        base.veiculoNome = label; // snapshot "FROTA — PLACA"
+        base.frotaNumeroSnapshot = v.frotaNumero || "";
+        base.placaSnapshot = v.placa || "";
+
+        veiculoIdUsado = v.id;
+      }
+
+      await addDoc(collection(db, "manutencoes"), base);
+
+      // 🚧 Assim que cria manutenção de VEÍCULO -> marcar em manutenção
+      if (veiculoIdUsado) {
+        try {
+          await marcarEmManutencao(veiculoIdUsado);
+        } catch (e) {
+          console.error("Falha ao marcar veículo em manutenção:", e);
+        }
+      }
+
+      // 🔁 Resets AUTOMÁTICOS ao VINCULAR (criação)
+      if (infoSelecionada?.checklistId === "emp-prev" && infoSelecionada.empId && infoSelecionada.manutKey) {
+        await resetarAgendamentoEmp(infoSelecionada.empId, infoSelecionada.manutKey);
+      }
+      if (infoSelecionada?.checklistId === "manut-prev" && infoSelecionada.tipoOleo && infoSelecionada.veiculo) {
+        await resetarParametroOleo(infoSelecionada.veiculo, infoSelecionada.tipoOleo);
+      }
+
+
+      // 🧹 Remove o problema vinculado da lista local imediatamente
+      if (infoSelecionada) {
+        setProblemasAbertos(prev =>
+          prev.filter(p => `${p.checklistId}:${p.nomeItem}` !== `${infoSelecionada.checklistId}:${infoSelecionada.nomeItem}`)
+        );
+      }
+
+      // 🗂️ Se o problema vier de um checklist, marca como vinculado no documento do checklist
+      if (infoSelecionada && infoSelecionada.checklistId !== "manut-prev" && infoSelecionada.checklistId !== "emp-prev") {
+        try {
+          await updateDoc(
+            doc(db, "checklists", infoSelecionada.checklistId),
+            { [`problemasVinculados.${sanitizeFieldPath(infoSelecionada.nomeItem)}`]: true }
+          );
+        } catch (e) {
+          console.error("Falha ao marcar problema como vinculado no checklist:", e);
+        }
+      }
+      setShowModal(false);
+      setTipo("");
+      setEquipamentoTipo("");
+      setListaEquipamentos([]);
+      setVeiculoNome("");
+      setSelectedVeiculoId("");
+      setDescricao("");
+      setDataPrevista("");
+      setProblemaVinculado("");
+
+      await recarregarDados();
+    } catch (err) {
+      alert("Erro ao cadastrar manutenção: " + err.message);
+    }
+    setEnviando(false);
+  };
 
   // ===== UI helpers
   const contentShouldPulse = Boolean(carregando && !showModal);
