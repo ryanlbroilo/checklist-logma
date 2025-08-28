@@ -1,4 +1,3 @@
-// src/components/abastecimento/LancarAbastecimento.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -193,6 +192,14 @@ export default function LancarAbastecimento({
     if (!veiculoSel) return setMsg("Selecione um veículo.");
     if (!tipoCombustivel || !litros || !precoPorLitro || !data) {
       return setMsg("Preencha todos os campos obrigatórios.");
+    }
+
+    // 🔒 Bloqueio de KM: não permite kmAtual menor/igual ao último KM conhecido
+    if (ultimoKm != null) {
+      const kmA = Number(kmAtual);
+      if (!isFinite(kmA) || kmA <= ultimoKm) {
+        return setMsg(`KM Atual deve ser maior que o último KM conhecido (${ultimoKm}).`);
+      }
     }
 
     // Restrições em modo público

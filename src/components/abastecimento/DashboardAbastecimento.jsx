@@ -1,4 +1,3 @@
-// src/components/abastecimento/DashboardAbastecimento.jsx
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,7 +9,7 @@ import {
   FaImage,
 } from "react-icons/fa6";
 import { FaSearch, FaEdit, FaTrash } from "react-icons/fa";
-import { collection, query, where, orderBy, getDocs, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "../../services/firebase";
 
 import {
@@ -67,14 +66,14 @@ function normalizeRow(raw) {
     tipoFrota: tipoFrotaNorm,
     tipoCombustivel: tipoCombNorm,
     isArla: tipoCombNorm === "arla",
-    imagem: raw.imagem || raw.fotoUrl || null, // ⬅️ traz a URL (campo imagem/fotoUrl)
+    imagem: raw.imagem || raw.fotoUrl || null,
     litros: Number(raw.litros || 0),
     precoPorLitro: Number(raw.precoPorLitro || 0),
     valorTotal,
     kmAtual: raw.kmAtual != null ? Number(raw.kmAtual) : null,
     kmPorLitro: raw.kmPorLitro != null ? Number(raw.kmPorLitro) : null,
     observacao,
-    dataAbastecimento: dateField, // Timestamp ou Date
+    dataAbastecimento: dateField,
   };
 }
 
@@ -82,7 +81,7 @@ async function fetchAbastecimentosMes({ ano, mes, tipoFrota }) {
   const { startTs, endTs } = getMonthBounds(ano, mes);
   const col = collection(db, "abastecimentos");
 
-  // 3 consultas por DATA (sem where de frota) para cobrir variados campos de data
+  // cobre diferentes campos de data
   const queries = [
     query(
       col,
@@ -120,15 +119,12 @@ async function fetchAbastecimentosMes({ ano, mes, tipoFrota }) {
   const byId = new Map();
   for (const r of results) byId.set(r.id, r);
 
-  // normaliza
   let rows = Array.from(byId.values()).map(normalizeRow);
 
-  // filtro de frota no client
   if (tipoFrota === "leve" || tipoFrota === "pesada") {
     rows = rows.filter((r) => (r.tipoFrota || "").toLowerCase() === tipoFrota);
   }
 
-  // ordena por data (desc)
   rows.sort((a, b) => {
     const toMs = (x) =>
       typeof x?.toDate === "function"
@@ -142,6 +138,70 @@ async function fetchAbastecimentosMes({ ano, mes, tipoFrota }) {
   });
 
   return rows;
+}
+
+// ======= NOVO: cálculo de consumo que respeita a fórmula (ΔKM/L) =======
+// Para cada abastecimento, usamos preferencialmente o kmPorLitro salvo (que já veio de ΔKM/L).
+// Se não houver kmPorLitro, tentamos inferir ΔKM entre abastecimentos consecutivos do mesmo veículo no mês.
+function calcularConsumoKmL(items) {
+  // ignora ARLA para consumo/preço
+  const combustiveis = items.filter((i) => !i.isArla);
+
+  // agrupa por veículo e ordena por data ASC (para conseguir ΔKM)
+  const byVeic = new Map();
+  for (const it of combustiveis) {
+    if (!byVeic.has(it.veiculoId)) byVeic.set(it.veiculoId, []);
+    byVeic.get(it.veiculoId).push(it);
+  }
+  for (const arr of byVeic.values()) {
+    arr.sort((a, b) => {
+      const toMs = (x) =>
+        typeof x?.toDate === "function"
+          ? x.toDate().getTime()
+          : x?.seconds
+          ? x.seconds * 1000
+          : x instanceof Date
+          ? x.getTime()
+          : 0;
+      return toMs(a.dataAbastecimento) - toMs(b.dataAbastecimento);
+    });
+  }
+
+  let totalLitros = 0;
+  let totalKm = 0;
+  let totalValor = 0;
+
+  for (const arr of byVeic.values()) {
+    let prevKm = null;
+    for (const r of arr) {
+      const litros = Number(r.litros) || 0;
+      const ppl = Number(r.precoPorLitro) || 0;
+      totalValor += litros * ppl;
+
+      // usa kmPorLitro salvo (mais confiável, pois considera último KM global)
+      if (isFinite(r.kmPorLitro) && r.kmPorLitro > 0) {
+        totalLitros += litros;
+        totalKm += r.kmPorLitro * litros;
+      } else if (isFinite(r.kmAtual) && prevKm != null && r.kmAtual > prevKm && litros > 0) {
+        // fallback: calcula ΔKM/L no mês quando possível
+        const deltaKm = r.kmAtual - prevKm;
+        totalKm += deltaKm;
+        totalLitros += litros;
+      }
+
+      if (isFinite(r.kmAtual)) prevKm = r.kmAtual;
+    }
+  }
+
+  const precoMedio = totalLitros > 0 ? totalValor / totalLitros : 0;
+  const consumoMedio = totalLitros > 0 ? totalKm / totalLitros : null;
+
+  return {
+    litrosTotais: Number(totalLitros.toFixed(2)),
+    precoMedio: Number(precoMedio.toFixed(4)),
+    consumoMedioFrota: consumoMedio != null ? Number(consumoMedio.toFixed(3)) : null,
+    totalGasto: Number(items.reduce((acc, i) => acc + Number(i.valorTotal || 0), 0).toFixed(2)), // inclui tudo
+  };
 }
 
 export default function DashboardAbastecimento() {
@@ -195,7 +255,7 @@ export default function DashboardAbastecimento() {
     })();
   }, []);
 
-  // carregamento principal (com 3 caminhos de data)
+  // carregamento principal
   const loadDados = async () => {
     setLoading(true);
     try {
@@ -214,35 +274,8 @@ export default function DashboardAbastecimento() {
 
       setRegistros(atuais);
 
-      // KPIs (ignorando ARLA nos cálculos de preço/consumo)
-      const calc = (items) => {
-        const combustiveis = items.filter((i) => !i.isArla);
-
-        // Total gasto pode considerar tudo
-        const somaValorTotalTodos = items.reduce((acc, i) => acc + Number(i.valorTotal || 0), 0);
-
-        const somaValor = combustiveis.reduce((acc, i) => acc + Number(i.valorTotal || 0), 0);
-        const somaLitros = combustiveis.reduce((acc, i) => acc + Number(i.litros || 0), 0);
-        const precoMedio = somaLitros > 0 ? somaValor / somaLitros : 0;
-
-        const somaKm = combustiveis.reduce((acc, i) => {
-          const kml = Number(i.kmPorLitro);
-          const l = Number(i.litros);
-          if (isFinite(kml) && kml > 0 && isFinite(l) && l > 0) return acc + kml * l;
-          return acc;
-        }, 0);
-        const consumoMedioFrota = somaLitros > 0 ? somaKm / somaLitros : null;
-
-        return {
-          totalGasto: Number(somaValorTotalTodos.toFixed(2)),       // tudo
-          litrosTotais: Number(somaLitros.toFixed(2)),              // só combustíveis
-          precoMedio: Number(precoMedio.toFixed(4)),                // só combustíveis
-          consumoMedioFrota: consumoMedioFrota != null ? Number(consumoMedioFrota.toFixed(3)) : null, // só combustíveis
-        };
-      };
-
-      const atual = calc(atuais);
-      const anterior = calc(anteriores);
+      const atual = calcularConsumoKmL(atuais);
+      const anterior = calcularConsumoKmL(anteriores);
       const delta = {
         totalGasto: Number((atual.totalGasto - anterior.totalGasto).toFixed(2)),
         precoMedio: Number((atual.precoMedio - anterior.precoMedio).toFixed(4)),
@@ -647,7 +680,8 @@ export default function DashboardAbastecimento() {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleEditOpen(a);
+                              setRegistroSelecionado(a);
+                              setShowEditar(true);
                               return false;
                             }}
                           >
