@@ -28,16 +28,21 @@ function ymNow() {
   return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
-function DeltaBadge({ value }) {
+function DeltaBadge({ value, invert = false }) {
   if (value == null || Number.isNaN(value)) return null;
+
   const num = Number(value);
   const sign = num > 0 ? "+" : "";
-  const cls =
-    num > 0
-      ? "badge bg-success-subtle text-success-emphasis" 
-      : num < 0
-      ? "badge bg-danger-subtle text-danger-emphasis" 
-      : "badge bg-secondary-subtle text-secondary-emphasis";
+
+  const isPositive = invert ? num < 0 : num > 0;
+  const isNegative = invert ? num > 0 : num < 0;
+
+  const cls = isPositive
+    ? "badge bg-success-subtle text-success-emphasis"
+    : isNegative
+    ? "badge bg-danger-subtle text-danger-emphasis"
+    : "badge bg-secondary-subtle text-secondary-emphasis";
+
   return (
     <span className={`ms-2 ${cls}`}>
       {sign}
@@ -590,7 +595,7 @@ export default function DashboardAbastecimento() {
               </div>
               <div className={`h2 m-0 ${gastoDelta == null ? "" : gastoDelta < 0 ? "text-success" : "text-danger"}`}>
                 {loading ? "…" : (kpis?.atual?.totalGasto ?? "—")}
-                {!loading && <DeltaBadge value={gastoDelta} />}
+                {!loading && <DeltaBadge value={gastoDelta} invert />}
               </div>
               {!loading && kpis?.anterior && (
                 <div className="small text-muted mt-1">Mês anterior: R$ {(kpis.anterior.totalGasto ?? 0).toFixed(2)}</div>
