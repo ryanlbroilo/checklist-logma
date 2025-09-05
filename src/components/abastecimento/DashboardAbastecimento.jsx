@@ -34,11 +34,16 @@ function DeltaBadge({ value }) {
   const sign = num > 0 ? "+" : "";
   const cls =
     num > 0
-      ? "badge bg-danger-subtle text-danger-emphasis"
+      ? "badge bg-success-subtle text-success-emphasis" 
       : num < 0
-      ? "badge bg-success-subtle text-success-emphasis"
+      ? "badge bg-danger-subtle text-danger-emphasis" 
       : "badge bg-secondary-subtle text-secondary-emphasis";
-  return <span className={`ms-2 ${cls}`}>{sign}{num.toFixed(2)}</span>;
+  return (
+    <span className={`ms-2 ${cls}`}>
+      {sign}
+      {num.toFixed(2)}
+    </span>
+  );
 }
 
 // helpers
