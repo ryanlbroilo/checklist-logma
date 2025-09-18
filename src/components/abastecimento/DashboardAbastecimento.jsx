@@ -229,6 +229,7 @@ export default function DashboardAbastecimento() {
   const [registros, setRegistros] = useState([]);
   const [kpis, setKpis] = useState(null);
   const [filtroPlaca, setFiltroPlaca] = useState("");
+  const [filtroCombustivel, setFiltroCombustivel] = useState("");
 
   const [showVeiculos, setShowVeiculos] = useState(false);
   const [showLancar, setShowLancar] = useState(false);
@@ -539,20 +540,21 @@ export default function DashboardAbastecimento() {
       </div>
 
       {/* Busca por Combustível */}
-      <div className="col">
-     <label>Combustível:</label>
-     <select
-       className="form-select"
-        value={filtroCombustivel}
-       onChange={(e) => setFiltroCombustivel(e.target.value)}
-     >
-       <option value="">Todos</option>
-       <option value="diesel">Diesel</option>
-       <option value="gasolina">Gasolina</option>
-       <option value="arla">ARLA</option>
-      </select>
-      </div>
-
+<div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <div className="d-flex flex-column">
+    <label className="form-label mb-0">Combustível:</label>
+    <select
+      className="form-select w-auto"
+      value={filtroCombustivel}
+      onChange={(e) => setFiltroCombustivel(e.target.value)}
+    >
+      <option value="">Todos</option>
+      <option value="diesel">Diesel</option>
+      <option value="gasolina">Gasolina</option>
+      <option value="arla">ARLA</option>
+    </select>
+  </div>
+</div>
 
       {/* KPI Cards */}
       <div className="row g-3">
