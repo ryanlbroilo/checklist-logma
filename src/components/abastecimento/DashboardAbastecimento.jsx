@@ -150,19 +150,17 @@ async function fetchAbastecimentosMes({ ano, mes, tipoFrota }) {
   return rows;
 }
 
-// ======= NOVO: cálculo de consumo que respeita a fórmula (ΔKM/L) =======
-// Para cada abastecimento, usamos preferencialmente o kmPorLitro salvo (que já veio de ΔKM/L).
-// Se não houver kmPorLitro, tentamos inferir ΔKM entre abastecimentos consecutivos do mesmo veículo no mês.
+// ======= Cálculo de consumo km/L =======
 function calcularConsumoKmL(items) {
-  // ignora ARLA para consumo/preço
+  // ignora ARLA no cálculo
   const combustiveis = items.filter((i) => !i.isArla);
 
-  // agrupa por veículo e ordena por data ASC (para conseguir ΔKM)
   const byVeic = new Map();
   for (const it of combustiveis) {
     if (!byVeic.has(it.veiculoId)) byVeic.set(it.veiculoId, []);
     byVeic.get(it.veiculoId).push(it);
   }
+
   for (const arr of byVeic.values()) {
     arr.sort((a, b) => {
       const toMs = (x) =>
@@ -188,18 +186,17 @@ function calcularConsumoKmL(items) {
       const ppl = Number(r.precoPorLitro) || 0;
       totalValor += litros * ppl;
 
-      // usa kmPorLitro salvo (mais confiável, pois considera último KM global)
       if (isFinite(r.kmPorLitro) && r.kmPorLitro > 0) {
         totalLitros += litros;
         totalKm += r.kmPorLitro * litros;
       } else if (isFinite(r.kmAtual) && prevKm != null && r.kmAtual > prevKm && litros > 0) {
-        // fallback: calcula ΔKM/L no mês quando possível
         const deltaKm = r.kmAtual - prevKm;
         totalKm += deltaKm;
         totalLitros += litros;
       }
 
-      if (isFinite(r.kmAtual)) prevKm = r.kmAtual;
+      // Atualiza prevKm SOMENTE se NÃO for ARLA
+      if (isFinite(r.kmAtual) && !r.isArla) prevKm = r.kmAtual;
     }
   }
 
@@ -210,7 +207,7 @@ function calcularConsumoKmL(items) {
     litrosTotais: Number(totalLitros.toFixed(2)),
     precoMedio: Number(precoMedio.toFixed(4)),
     consumoMedioFrota: consumoMedio != null ? Number(consumoMedio.toFixed(3)) : null,
-    totalGasto: Number(items.reduce((acc, i) => acc + Number(i.valorTotal || 0), 0).toFixed(2)), // inclui tudo
+    totalGasto: Number(items.reduce((acc, i) => acc + Number(i.valorTotal || 0), 0).toFixed(2)),
   };
 }
 
@@ -321,11 +318,16 @@ export default function DashboardAbastecimento() {
     frota === "leve" ? th.leve.precoMedioTarget : frota === "pesada" ? th.pesada.precoMedioTarget : null;
 
   // filtro por placa
-  const listaAbastFiltrada = useMemo(() => {
-    const frag = filtroPlaca.trim().toUpperCase();
-    if (!frag) return registros;
-    return registros.filter((a) => (a.placa || "").toUpperCase().includes(frag));
-  }, [registros, filtroPlaca]);
+ const listaAbastFiltrada = useMemo(() => {
+  const fragPlaca = filtroPlaca.trim().toUpperCase();
+  const fragComb = filtroCombustivel.trim().toLowerCase();
+
+  return registros.filter((a) => {
+    const placaMatch = !fragPlaca || (a.placa || "").toUpperCase().includes(fragPlaca);
+    const combMatch = !fragComb || (a.tipoCombustivel || "").toLowerCase() === fragComb;
+    return placaMatch && combMatch;
+  });
+}, [registros, filtroPlaca, filtroCombustivel]);
 
   // R$/L ponderado (sem ARLA)
   const precoMedioFiltrado = useMemo(() => {
@@ -535,6 +537,22 @@ export default function DashboardAbastecimento() {
           />
         </div>
       </div>
+
+      {/* Busca por Combustível */}
+      <div className="col">
+     <label>Combustível:</label>
+     <select
+       className="form-select"
+        value={filtroCombustivel}
+       onChange={(e) => setFiltroCombustivel(e.target.value)}
+     >
+       <option value="">Todos</option>
+       <option value="diesel">Diesel</option>
+       <option value="gasolina">Gasolina</option>
+       <option value="arla">ARLA</option>
+      </select>
+      </div>
+
 
       {/* KPI Cards */}
       <div className="row g-3">
