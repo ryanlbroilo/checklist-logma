@@ -5,6 +5,8 @@ Inclui painel de KPIs, lançamento com imagem (nota/comprovante), histórico, ca
 
 > **Status:** Uso interno (comercial/privado).
 
+<img width="1227" height="837" alt="Preview" src="https://github.com/user-attachments/assets/00f3d564-e5c0-4387-9eeb-5efa784c509a" />
+
 ---
 
 ## ✨ Principais recursos
