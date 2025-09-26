@@ -56,7 +56,7 @@ export default function Checklist({ user, tipoChecklist }) {
   const [itemAtual, setItemAtual] = useState("");
 
   // Restrições
-  const [jaEnviouHoje, setJaEnviouHoje] = useState(false);
+  const [jaEnviouHoje, setJaEnviouHoje] = useState(0);
 
   const navigate = useNavigate();
   const permitido = user?.role === "admin" || permissaoPorRole[user?.role] === tipoChecklist;
@@ -180,27 +180,27 @@ if (tipoChecklist === "veiculo") {
 
   // 1 checklist por dia
   useEffect(() => {
-    async function checarChecklistHoje() {
-      if (!user?.uid) return;
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-      const qRef = query(
-        collection(db, "checklists"),
-        where("usuarioUid", "==", user.uid),
-        orderBy("dataHora", "desc")
-      );
-      const snap = await getDocs(qRef);
-      const fezHoje = snap.docs.some(doc => {
-        const data = doc.data().dataHora?.toDate?.() || doc.data().dataHora;
-        if (!data) return false;
-        const d = new Date(data);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() === hoje.getTime();
-      });
-      setJaEnviouHoje(fezHoje);
-    }
-    checarChecklistHoje();
-  }, [user]);
+  async function checarChecklistHoje() {
+    if (!user?.uid) return;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const qRef = query(
+      collection(db, "checklists"),
+      where("usuarioUid", "==", user.uid),
+      orderBy("dataHora", "desc")
+    );
+    const snap = await getDocs(qRef);
+    const enviadosHoje = snap.docs.filter(doc => {
+      const data = doc.data().dataHora?.toDate?.() || doc.data().dataHora;
+      if (!data) return false;
+      const d = new Date(data);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === hoje.getTime();
+    });
+    setJaEnviouHoje(enviadosHoje.length);
+  }
+  checarChecklistHoje();
+}, [user]);
 
   // Upload NOK
   const handleArquivoChange = (e) => {
@@ -264,9 +264,10 @@ if (tipoChecklist === "veiculo") {
       alert("Os checklists só podem ser enviados às segundas ou quintas-feiras.");
       return;
     }
-    if (jaEnviouHoje) {
-      alert("Você já enviou um checklist hoje.");
-      return;
+    const limite = user?.role === "operador_empilhadeira" ? 2 : 1;
+    if (jaEnviouHoje >= limite) {
+    alert(`Você já enviou ${jaEnviouHoje} checklist(s) hoje. Limite: ${limite}.`);
+    return;
     }
 
     // Validações numéricas
