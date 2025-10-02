@@ -264,7 +264,7 @@ if (tipoChecklist === "veiculo") {
       alert("Os checklists só podem ser enviados às segundas ou quintas-feiras.");
       return;
     }
-    const limite = user?.role === "operador_empilhadeira" ? 2 : 1;
+    const limite = user?.role === "operador_empilhadeira" ? 3 : 1;
     if (jaEnviouHoje >= limite) {
     alert(`Você já enviou ${jaEnviouHoje} checklist(s) hoje. Limite: ${limite}.`);
     return;
